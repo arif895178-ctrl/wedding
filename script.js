@@ -1,5 +1,5 @@
 // ─── CONFIG ───────────────────────────────────────────────
-const TOTAL_FRAMES = 80;   // change to match how many frames you extracted
+const TOTAL_FRAMES = 480;   // change to match how many frames you extracted
 const FRAME_PATH   = i =>
   `frames/frame${String(i).padStart(3, "0")}.jpg`;
 // ──────────────────────────────────────────────────────────
