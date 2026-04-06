@@ -1,134 +1,126 @@
-const video = document.getElementById("scrollVideo");
-const music = document.getElementById("bgMusic");
+// ─── CONFIG ───────────────────────────────────────────────
+const TOTAL_FRAMES = 80;   // change to match how many frames you extracted
+const FRAME_PATH   = i =>
+  `frames/frame${String(i).padStart(3, "0")}.jpg`;
+// ──────────────────────────────────────────────────────────
+
+const canvas  = document.getElementById("frameCanvas");
+const ctx     = canvas.getContext("2d");
+const music   = document.getElementById("bgMusic");
 const scrollHint = document.getElementById("scrollHint");
 
-let duration = 0;
-let targetTime = 0;
-let currentTime = 0;
+const frames = [];
+let loadedCount = 0;
 
-let unlocked = false;
+function preloadFrames(onReady) {
+  for (let i = 1; i <= TOTAL_FRAMES; i++) {
+    const img = new Image();
+    img.src = FRAME_PATH(i);
+    img.onload = () => {
+      loadedCount++;
+      if (loadedCount === TOTAL_FRAMES) onReady();
+    };
+    img.onerror = () => { loadedCount++; };
+    frames[i - 1] = img;
+  }
+}
+
+function resizeCanvas() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  drawFrame(currentFrameIndex);
+}
+window.addEventListener("resize", resizeCanvas);
+
+let currentFrameIndex = 0;
+let targetFrameIndex  = 0;
+let smoothFrame       = 0;
+
+function drawFrame(index) {
+  const i = Math.max(0, Math.min(TOTAL_FRAMES - 1, Math.round(index)));
+  const img = frames[i];
+  if (!img || !img.complete) return;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const scale = Math.max(
+    canvas.width  / img.naturalWidth,
+    canvas.height / img.naturalHeight
+  );
+  const w = img.naturalWidth  * scale;
+  const h = img.naturalHeight * scale;
+  const x = (canvas.width  - w) / 2;
+  const y = (canvas.height - h) / 2;
+
+  ctx.drawImage(img, x, y, w, h);
+}
+
 let musicStarted = false;
-let hintHidden = false;
-
-const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
-const throttleMs = isMobile ? 100 : 40;
-
-video.setAttribute("playsinline", "true");
-video.setAttribute("webkit-playsinline", "true");
-video.setAttribute("muted", "true");
-video.setAttribute("preload", "auto");
-video.muted = true; // must set as property too, not just attribute
-
-video.addEventListener("loadedmetadata", () => {
-  duration = video.duration;
-});
-
-function unlockVideo() {
-  if (unlocked) return;
-
-  video.muted = true;
-  video.playsInline = true;
-  video.currentTime = 0.01;
-
-  video.play().then(() => {
-    video.pause();
-    unlocked = true;
+function startMusic() {
+  if (musicStarted) return;
+  music.volume = 0;
+  music.play().then(() => {
+    musicStarted = true;
+    let vol = 0;
+    const fade = setInterval(() => {
+      vol = Math.min(vol + 0.05, 1);
+      music.volume = vol;
+      if (vol >= 1) clearInterval(fade);
+    }, 100);
   }).catch(() => {});
 }
 
-function startMusic() {
-  if (!musicStarted) {
-    music.volume = 0;
-
-    music.play().then(() => {
-      musicStarted = true;
-
-      let vol = 0;
-      const fade = setInterval(() => {
-        if (vol < 1) {
-          vol += 0.05;
-          music.volume = vol;
-        } else {
-          clearInterval(fade);
-        }
-      }, 100);
-    }).catch(() => {});
-  }
-}
-
-let lastUpdate = 0;
+let hintHidden = false;
 
 window.addEventListener("scroll", () => {
-  unlockVideo();
   startMusic();
 
-  // Hide intro hint
   if (!hintHidden && window.scrollY > 50) {
     hintHidden = true;
     scrollHint.style.opacity = "0";
-
-    setTimeout(() => {
-      scrollHint.style.display = "none";
-    }, 800);
+    setTimeout(() => scrollHint.style.display = "none", 800);
   }
 
-  const now = performance.now();
-  if (now - lastUpdate < throttleMs) return;
-  lastUpdate = now;
-
-  const scrollTop = window.scrollY;
   const maxScroll = document.body.scrollHeight - window.innerHeight;
-
-  let progress = scrollTop / maxScroll;
-  progress = Math.min(Math.max(progress, 0), 1);
-
-  targetTime = duration * progress;
-
-  const title = document.querySelector(".title");
-  const names = document.querySelector(".names");
-  const details = document.querySelector(".details");
-
-  if (scrollTop > 100 && scrollTop < 600) {
-    title.style.opacity = 1;
-    title.style.transform = "translateY(0)";
-  } else {
-    title.style.opacity = 0;
-  }
-
-  if (scrollTop > 500 && scrollTop < 1200) {
-    names.style.opacity = 1;
-    names.style.transform = "scale(1)";
-  } else {
-    names.style.opacity = 0;
-  }
-
-  if (scrollTop > 1100 && scrollTop < 1800) {
-    details.style.opacity = 1;
-    details.style.transform = "translateY(0)";
-  } else {
-    details.style.opacity = 0;
-  }
-});
+  const progress  = Math.min(Math.max(window.scrollY / maxScroll, 0), 1);
+  targetFrameIndex = progress * (TOTAL_FRAMES - 1);
+}, { passive: true });
 
 function animate() {
-  currentTime += (targetTime - currentTime) * 0.15;
+  smoothFrame += (targetFrameIndex - smoothFrame) * 0.12;
+  if (Math.abs(targetFrameIndex - smoothFrame) < 0.1) smoothFrame = targetFrameIndex;
 
-  if (Math.abs(targetTime - currentTime) < 0.002) {
-    currentTime = targetTime;
+  if (Math.round(smoothFrame) !== currentFrameIndex) {
+    currentFrameIndex = Math.round(smoothFrame);
+    drawFrame(currentFrameIndex);
   }
 
-  if (
-    video.readyState >= 2 &&
-    Math.abs(video.currentTime - currentTime) > 0.08
-  ) {
-    video.currentTime = currentTime;
+  const s = window.scrollY;
+  const title   = document.querySelector(".title");
+  const names   = document.querySelector(".names");
+  const details = document.querySelector(".details");
+
+  if (title) {
+    const v = s > 100 && s < 600;
+    title.style.opacity   = v ? 1 : 0;
+    title.style.transform = v ? "translateY(0)" : "translateY(30px)";
+  }
+  if (names) {
+    const v = s > 500 && s < 1200;
+    names.style.opacity   = v ? 1 : 0;
+    names.style.transform = v ? "scale(1)" : "scale(0.9)";
+  }
+  if (details) {
+    const v = s > 1100 && s < 1800;
+    details.style.opacity   = v ? 1 : 0;
+    details.style.transform = v ? "translateY(0)" : "translateY(20px)";
   }
 
   requestAnimationFrame(animate);
 }
 
-animate();
-
-
-window.addEventListener("touchstart", unlockVideo, { once: true });
-window.addEventListener("click", unlockVideo, { once: true });
+preloadFrames(() => {
+  resizeCanvas();
+  drawFrame(0);
+  animate();
+});
