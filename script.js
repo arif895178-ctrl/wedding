@@ -44,7 +44,7 @@ function drawFrame(index) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   // Contain fit
-  const scale = Math.min(
+  const scale = Math.max(
     canvas.width  / img.naturalWidth,
     canvas.height / img.naturalHeight
   );
