@@ -11,13 +11,12 @@ let musicStarted = false;
 let hintHidden = false;
 
 const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
-const throttleMs = isMobile ? 100 : 40;
 
 video.setAttribute("playsinline", "true");
 video.setAttribute("webkit-playsinline", "true");
 video.setAttribute("muted", "true");
 video.setAttribute("preload", "auto");
-video.muted = true; // must set as property too, not just attribute
+video.muted = true;
 
 video.addEventListener("loadedmetadata", () => {
   duration = video.duration;
@@ -25,11 +24,9 @@ video.addEventListener("loadedmetadata", () => {
 
 function unlockVideo() {
   if (unlocked) return;
-
   video.muted = true;
   video.playsInline = true;
   video.currentTime = 0.01;
-
   video.play().then(() => {
     video.pause();
     unlocked = true;
@@ -39,96 +36,100 @@ function unlockVideo() {
 function startMusic() {
   if (!musicStarted) {
     music.volume = 0;
-
     music.play().then(() => {
       musicStarted = true;
-
       let vol = 0;
       const fade = setInterval(() => {
-        if (vol < 1) {
-          vol += 0.05;
-          music.volume = vol;
-        } else {
-          clearInterval(fade);
-        }
+        vol = Math.min(vol + 0.05, 1);
+        music.volume = vol;
+        if (vol >= 1) clearInterval(fade);
       }, 100);
     }).catch(() => {});
   }
 }
 
-let lastUpdate = 0;
+// --- Smooth scroll state ---
+let smoothScroll = window.scrollY;     // the interpolated scroll position
+let lastScrollY = window.scrollY;
+let scrollVelocity = 0;
+const LERP_FACTOR = isMobile ? 0.06 : 0.08;   // lower = smoother, slower
+const VELOCITY_DAMPING = 0.82;                 // how fast velocity bleeds off
 
 window.addEventListener("scroll", () => {
   unlockVideo();
   startMusic();
 
-  // Hide intro hint
   if (!hintHidden && window.scrollY > 50) {
     hintHidden = true;
     scrollHint.style.opacity = "0";
+    setTimeout(() => { scrollHint.style.display = "none"; }, 800);
+  }
+}, { passive: true });
 
-    setTimeout(() => {
-      scrollHint.style.display = "none";
-    }, 800);
+// Minimum seek threshold — don't touch currentTime for tiny diffs
+const SEEK_THRESHOLD = isMobile ? 0.15 : 0.05;
+
+// Track last time we actually seeked, to avoid hammering the decoder
+let lastSeekedTime = -1;
+
+function animate() {
+  // Compute scroll velocity for inertia feel
+  const rawScroll = window.scrollY;
+  scrollVelocity = (scrollVelocity + (rawScroll - lastScrollY)) * VELOCITY_DAMPING;
+  lastScrollY = rawScroll;
+
+  // Lerp smoothScroll toward rawScroll (with a tiny velocity nudge for feel)
+  smoothScroll += (rawScroll - smoothScroll) * LERP_FACTOR;
+
+  // Clamp
+  const maxScroll = document.body.scrollHeight - window.innerHeight;
+  const clampedScroll = Math.min(Math.max(smoothScroll, 0), maxScroll);
+
+  const progress = maxScroll > 0 ? clampedScroll / maxScroll : 0;
+  targetTime = duration * progress;
+
+  // Only lerp currentTime toward targetTime
+  currentTime += (targetTime - currentTime) * 0.12;
+  if (Math.abs(targetTime - currentTime) < 0.001) currentTime = targetTime;
+
+  // Only seek if the difference is worth it (avoids decoder hammering)
+  if (
+    video.readyState >= 2 &&
+    Math.abs(video.currentTime - currentTime) > SEEK_THRESHOLD
+  ) {
+    video.currentTime = currentTime;
+    lastSeekedTime = currentTime;
   }
 
-  const now = performance.now();
-  if (now - lastUpdate < throttleMs) return;
-  lastUpdate = now;
-
-  const scrollTop = window.scrollY;
-  const maxScroll = document.body.scrollHeight - window.innerHeight;
-
-  let progress = scrollTop / maxScroll;
-  progress = Math.min(Math.max(progress, 0), 1);
-
-  targetTime = duration * progress;
+  // --- Text overlay transitions (driven by smoothScroll for consistency) ---
+  const s = clampedScroll;
 
   const title = document.querySelector(".title");
   const names = document.querySelector(".names");
   const details = document.querySelector(".details");
 
-  if (scrollTop > 100 && scrollTop < 600) {
-    title.style.opacity = 1;
-    title.style.transform = "translateY(0)";
-  } else {
-    title.style.opacity = 0;
+  if (title) {
+    const visible = s > 100 && s < 600;
+    title.style.opacity = visible ? 1 : 0;
+    title.style.transform = visible ? "translateY(0)" : "translateY(30px)";
   }
 
-  if (scrollTop > 500 && scrollTop < 1200) {
-    names.style.opacity = 1;
-    names.style.transform = "scale(1)";
-  } else {
-    names.style.opacity = 0;
+  if (names) {
+    const visible = s > 500 && s < 1200;
+    names.style.opacity = visible ? 1 : 0;
+    names.style.transform = visible ? "scale(1)" : "scale(0.9)";
   }
 
-  if (scrollTop > 1100 && scrollTop < 1800) {
-    details.style.opacity = 1;
-    details.style.transform = "translateY(0)";
-  } else {
-    details.style.opacity = 0;
-  }
-});
-
-function animate() {
-  currentTime += (targetTime - currentTime) * 0.15;
-
-  if (Math.abs(targetTime - currentTime) < 0.002) {
-    currentTime = targetTime;
-  }
-
-  if (
-    video.readyState >= 2 &&
-    Math.abs(video.currentTime - currentTime) > 0.08
-  ) {
-    video.currentTime = currentTime;
+  if (details) {
+    const visible = s > 1100 && s < 1800;
+    details.style.opacity = visible ? 1 : 0;
+    details.style.transform = visible ? "translateY(0)" : "translateY(20px)";
   }
 
   requestAnimationFrame(animate);
 }
 
 animate();
-
 
 window.addEventListener("touchstart", unlockVideo, { once: true });
 window.addEventListener("click", unlockVideo, { once: true });
