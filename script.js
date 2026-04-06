@@ -1,7 +1,7 @@
 // ─── CONFIG ───────────────────────────────────────────────
-const TOTAL_FRAMES = 80;   // change to match how many frames you extracted
+const TOTAL_FRAMES = 192;   // change to match how many frames you extracted
 const FRAME_PATH   = i =>
-  `frames/frame${String(i).padStart(3, "0")}.jpg`;
+  `frames/frame${String(i).padStart(3, "0")}.png`;
 // ──────────────────────────────────────────────────────────
 
 const canvas  = document.getElementById("frameCanvas");
