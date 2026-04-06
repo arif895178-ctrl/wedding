@@ -42,12 +42,21 @@ function drawFrame(index) {
   if (!img || !img.complete) return;
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Contain fit
-  const scale = Math.max(
-    canvas.width  / img.naturalWidth,
-    canvas.height / img.naturalHeight
-  );
+  // Cover fit — but cap scale to avoid over-zoom on wide screens
+  const scaleX = canvas.width  / img.naturalWidth;
+  const scaleY = canvas.height / img.naturalHeight;
+  const scale  = Math.min(Math.max(scaleX, scaleY), 1.2); // cap at 1.2x
+
+  const w = img.naturalWidth  * scale;
+  const h = img.naturalHeight * scale;
+  const x = (canvas.width  - w) / 2;
+  const y = (canvas.height - h) / 2;
+
+  ctx.drawImage(img, x, y, w, h);
+}
   const w = img.naturalWidth  * scale;
   const h = img.naturalHeight * scale;
   const x = (canvas.width  - w) / 2;
