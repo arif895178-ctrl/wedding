@@ -1,5 +1,5 @@
 // ─── CONFIG ───────────────────────────────────────────────
-const TOTAL_FRAMES = 192;   // change to match how many frames you extracted
+const TOTAL_FRAMES = 192;
 const FRAME_PATH   = i =>
   `frames/frame${String(i).padStart(3, "0")}.png`;
 // ──────────────────────────────────────────────────────────
@@ -45,18 +45,10 @@ function drawFrame(index) {
   ctx.fillStyle = "black";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Cover fit — but cap scale to avoid over-zoom on wide screens
   const scaleX = canvas.width  / img.naturalWidth;
   const scaleY = canvas.height / img.naturalHeight;
-  const scale  = Math.min(Math.max(scaleX, scaleY), 1.2); // cap at 1.2x
+  const scale  = Math.min(Math.max(scaleX, scaleY), 1.2);
 
-  const w = img.naturalWidth  * scale;
-  const h = img.naturalHeight * scale;
-  const x = (canvas.width  - w) / 2;
-  const y = (canvas.height - h) / 2;
-
-  ctx.drawImage(img, x, y, w, h);
-}
   const w = img.naturalWidth  * scale;
   const h = img.naturalHeight * scale;
   const x = (canvas.width  - w) / 2;
