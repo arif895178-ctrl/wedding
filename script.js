@@ -25,38 +25,36 @@ function preloadFrames(onReady) {
   }
 }
 
+let canvasW = window.innerWidth;
+let canvasH = window.innerHeight;
+
 function resizeCanvas() {
-  canvas.width  = window.innerWidth;
-  canvas.height = window.innerHeight;
+  canvasW = window.innerWidth;
+  canvasH = window.innerHeight;
+  canvas.width  = canvasW;
+  canvas.height = canvasH;
   drawFrame(currentFrameIndex);
 }
-window.addEventListener("resize", resizeCanvas);
-
-let currentFrameIndex = 0;
-let targetFrameIndex  = 0;
-let smoothFrame       = 0;
 
 function drawFrame(index) {
   const i = Math.max(0, Math.min(TOTAL_FRAMES - 1, Math.round(index)));
   const img = frames[i];
   if (!img || !img.complete) return;
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.clearRect(0, 0, canvasW, canvasH);
   ctx.fillStyle = "black";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, canvasW, canvasH);
 
-  const scaleX = canvas.width  / img.naturalWidth;
-  const scaleY = canvas.height / img.naturalHeight;
-  const scale  = Math.min(Math.max(scaleX, scaleY), 1.2);
+  // Always use contain — no zoom at all
+  const scale = Math.min(canvasW / img.naturalWidth, canvasH / img.naturalHeight);
 
   const w = img.naturalWidth  * scale;
   const h = img.naturalHeight * scale;
-  const x = (canvas.width  - w) / 2;
-  const y = (canvas.height - h) / 2;
+  const x = (canvasW - w) / 2;
+  const y = (canvasH - h) / 2;
 
   ctx.drawImage(img, x, y, w, h);
 }
-
 let musicStarted = false;
 function startMusic() {
   if (musicStarted) return;
